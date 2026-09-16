@@ -1,3 +1,4 @@
+import copy
 import re
 import time
 
@@ -6,45 +7,109 @@ from gspread.utils import rowcol_to_a1
 
 from winotify import Notification
 
+from task_fetcher import TaskFetcher
+
+
 def notify(text):
-    noti = Notification('table notificator', 'Изменение в таблице!', text)
-    noti.show()
+    Notification(
+        'Table notificator',
+        'Изменение в таблице!',
+        text,
+        'C:\\Users\\dima\\PycharmProjects\\table-change-notification\\spreadsheets.ico'
+    ).show()
+    print(f'Notify: {text}')
+
+
+def prepare_dict(selected, base):
+    res = copy.deepcopy(base)
+    for k in selected.keys():
+        if isinstance(selected[k], dict):
+            res[k] = prepare_dict(selected[k], res[k])
+        else:
+            res[k] = selected[k]
+    return res
+
 
 
 class Spectator:
-    def __init__(self, gc, table_key, person_name, names_column, first_task_column):
+    def __init__(self, gc, person_name, data: dict, gui_text: bool):
         self.gc = gc
-        self.table_key = table_key
+        self.table_key = data['table-key']
+        self.tasks_row = data.get('tasks-row')
+        self.worksheet_picking_type = data['worksheet']
+        self.task_number_type = data['task-number']
+        self.statuses = data['statuses']
+        self.first_task_column = data['first-task-column']
+        self.previous_task_marks = None
+        self.tasks_fetcher = TaskFetcher(data['tasks-url']) if data.get('tasks-url') and gui_text else None
+
         self.stopped = False
         self.worksheet: gspread.Worksheet = None
+        self.tasks_numbers: list[str] | None = None
         self.load_worksheet()
 
-        self.person_number = self.find_person_number(person_name, names_column)
-        # self.person_name = person_name
-        self.first_task_column = first_task_column
-        self.previous_task_marks = []
+        self.person_number = self.find_person_number(person_name, data['names-column'])
 
     def load_worksheet(self):
         self.worksheet = self.choose_worksheet(self.gc.open_by_key(self.table_key).worksheets(True))
+        print(f'Loaded worksheet: {self.worksheet.title}')
+
+        self.tasks_numbers = [it.value for it in self.worksheet.range(
+            rowcol_to_a1(self.tasks_row, self.first_task_column) + ':' +
+            rowcol_to_a1(self.tasks_row, self.worksheet.col_count)
+        )] if self.tasks_row is not None else None
 
     def on_got_marks(self, new_data):
         if self.previous_task_marks is None:
+            print('First load succeed')
             self.previous_task_marks = new_data
         elif new_data != self.previous_task_marks:
+            if len(new_data) != len(self.previous_task_marks):
+                while len(new_data) < len(self.previous_task_marks):
+                    new_data.append('')
+                while len(new_data) > len(self.previous_task_marks):
+                    self.previous_task_marks.append('')
+
             for i, (it, pit) in enumerate(zip(new_data, self.previous_task_marks)):
                 if it != pit:
-                    self.on_delta(i + 1, pit, it)
+                    self.on_delta(i, pit, it)
             self.previous_task_marks = new_data
 
+
+    def get_number_str(self, number):
+        if self.task_number_type == '$task-row':
+            if self.tasks_numbers is None:
+                raise ValueError("tasks_numbers is None")
+            return self.tasks_numbers[number]
+        else:
+            return str(number)
+
     def on_delta(self, number, was, now):
-        print(f'On task {number}, was: {was}, now: {now}')
+        txt = self.statuses.get(now)
+        if txt:
+            notify(f'Задача {self.get_number_str(number)} {txt}')
+        else:
+            notify(f'Невалидное значение в задаче {self.get_number_str(number)}: было `{was}`, теперь `{now}`')
+
+        if txt == 'выдана' and self.tasks_fetcher:
+            q = self.get_number_str(number)
+            self.tasks_fetcher.show_task(int(q) if q.isdigit() else number)
 
     def choose_worksheet(self, worksheets):
-        return worksheets[0]
+        if self.worksheet_picking_type == '$D_number':
+            sheet_hws = [it for it in worksheets if it.title.startswith('Д') and it.title[1:].isdigit()]
+            sheet_hws.sort(key=lambda it: int(it.title[1:]))
+            return sheet_hws[-1]
+        elif self.worksheet_picking_type == '$first':
+            return worksheets[0]
+        else:
+            return ([it for it in worksheets if it.title == self.worksheet_picking_type] or [None])[0]
+
 
     def find_person_number(self, name, names_column) -> int:
         for i, it in enumerate(self.worksheet.col_values(names_column)):
             if name in it:
+                print(f'Found name {it} at {i + 1}')
                 return i + 1
         return -1
 
@@ -53,44 +118,12 @@ class Spectator:
 
     def mainloop(self):
         t = 0
+        print('Starting loop')
         while not self.stopped:
             range_ = rowcol_to_a1(self.person_number,  self.first_task_column) + ':' + rowcol_to_a1(self.person_number, self.worksheet.col_count)
             data = self.worksheet.get(range_)
             self.on_got_marks(data[0])
             time.sleep(1)
-            if t % 10 == 0:
+            t += 1
+            if t % 100 == 0:
                 self.load_worksheet()
-
-
-class DiscraSpectator(Spectator):
-    def __init__(self, gc, person_name):
-        super().__init__(gc, '1BxCbaE65SVw9sfujC-k9dzSZiQQKXFgBcc17yOXhFW4', person_name, 1, 7)
-
-    def choose_worksheet(self, worksheets):
-        sheet_hws = [it for it in worksheets if it.title.startswith('Д') and it.title[1:].isdigit()]
-        sheet_hws.sort(key=lambda it: int(it.title[1:]))
-        return sheet_hws[-1]
-
-    def on_delta(self, number, was, now):
-        match now:
-            case 'T':
-                notify(f'Зачтена задача {number}')
-            case '1':
-                notify(f'Отмечена задача {number}')
-            case 'P':
-                notify(f'Вам выдана задача {number}')
-            case '':
-                notify(f'Очищено поле в задаче {number}')
-            case _:
-                notify(f'Невалидное значение в задаче {number}: было `{was}`, теперь `{now}`')
-
-
-class TestDiscraSpectator(Spectator):
-    def __init__(self, gc, person_name):
-        super().__init__(gc, '1sTm3pEvPr2Wdvy4toi_rNneQ4bi5nO8aA2sjaCC13Sk', person_name, 1, 7)
-
-    def choose_worksheet(self, worksheets):
-        return DiscraSpectator.choose_worksheet(self, worksheets)
-
-    def on_delta(self, number, was, now):
-        return DiscraSpectator.on_delta(self, number, was, now)
