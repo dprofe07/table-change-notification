@@ -1,0 +1,47 @@
+{
+  "$default": {
+    "first-task-column": 7,
+    "names-column": 1,
+    "tasks-row": 2,
+    "task-number": "$task-row",
+    "statuses": {
+      "T": "зачтена",
+      "P": "выдана",
+      "1": "отмечена",
+      "": "очищена",
+      "Pa": "выдана на асинх",
+      "P!": "выдана на некст пару"
+    },
+    "worksheet": "$D_number"
+  },
+  "discra": {
+    "table-key": "1UPvlQ-HvtoLJzx0yYVetR9f8Ock5FLqLC4OTPrRsuCo",
+    "tasks-url": "https://neerc.ifmo.ru/wiki/index.php?title=%D0%A1%D0%BF%D0%B8%D1%81%D0%BE%D0%BA_%D0%B7%D0%B0%D0%B4%D0%B0%D0%BD%D0%B8%D0%B9_%D0%BF%D0%BE_%D0%94%D0%9C_2%D0%BA_2026_%D0%BE%D1%81%D0%B5%D0%BD%D1%8C"
+  },
+  "math-logic": {
+    "table-key": "1xSCcXovpKUswUTMA3eX3cUjmfk5o9HHnRB-WEbc6soE",
+    "statuses": {
+      "T!": "зачтена с бонусом"
+    }
+  },
+  "tmp-algos": {
+    "table-key": "1ZctIX0iEpylvk8_L3HKTHo-kSwmRv0N30eJ9B3D4Ngo"
+  },
+  "test-discra": {
+    "table-key": "1sTm3pEvPr2Wdvy4toi_rNneQ4bi5nO8aA2sjaCC13Sk",
+    "tasks-url": "https://neerc.ifmo.ru/wiki/index.php?title=%D0%A1%D0%BF%D0%B8%D1%81%D0%BE%D0%BA_%D0%B7%D0%B0%D0%B4%D0%B0%D0%BD%D0%B8%D0%B9_%D0%BF%D0%BE_%D0%94%D0%9C_2%D0%BA_2026_%D0%BE%D1%81%D0%B5%D0%BD%D1%8C"
+  },
+  "algos": {
+    "table-key": "1fYpF4BX3-VPskecZJj0ZnbtvW-zemk3ioilYo3C6v0s",
+    "statuses": {
+      ".": "отмечена",
+      "!": "выдана",
+      "+": "зачтена"
+    },
+    "worksheet": "36-37",
+    "first-task-column": 28,
+    "task-number": "$number"
+  }
+
+
+}
