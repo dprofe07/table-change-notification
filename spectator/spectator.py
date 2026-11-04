@@ -4,28 +4,19 @@ import time
 import gspread
 from gspread.utils import rowcol_to_a1
 
-from winotify import Notification
-
+from notifier import Notifier
 from table_data import TableData
 from .task_fetcher import TaskFetcher
 
 
-def notify(text):
-    Notification(
-        'Table notificator',
-        'Изменение в таблице!',
-        text,
-        'C:\\Users\\dima\\PycharmProjects\\table-change-notification\\spreadsheets.ico'
-    ).show()
-    print(f'Notify: {text}')
-
 
 class Spectator:
-    def __init__(self, gc, person_name, data: TableData, gui_text: bool):
+    def __init__(self, gc, person_name, data: TableData, notifier: Notifier, gui_text: bool):
         self.gc = gc
         self.data = data
         self.previous_task_marks = None
         self.tasks_fetcher = TaskFetcher(data.tasks_url) if data.tasks_url and gui_text else None
+        self.notifier = notifier
 
         self.stopped = False
         self.worksheet: gspread.Worksheet = None
@@ -71,9 +62,9 @@ class Spectator:
     def on_delta(self, number, was, now):
         txt = self.data.statuses.get(now)
         if txt:
-            notify(f'Задача {self.get_number_str(number)} {txt}')
+            self.notifier.notify(f'Задача {self.get_number_str(number)} {txt}')
         else:
-            notify(f'Невалидное значение в задаче {self.get_number_str(number)}: было `{was}`, теперь `{now}`')
+            self.notifier.notify(f'Невалидное значение в задаче {self.get_number_str(number)}: было `{was}`, теперь `{now}`')
 
         if txt == 'выдана' and self.tasks_fetcher:
             q = self.get_number_str(number)

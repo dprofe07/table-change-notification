@@ -2,12 +2,12 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime
 
 import gspread
 
 from spectator import Spectator
 from table_data import TableData
+from notifier import WinNotifier, TgNotifier, NoneNotifier, Notifier, ConsoleNotifier
 
 
 def create_gc_object():
@@ -18,7 +18,7 @@ def create_gc_object():
     )
 
 
-def parse_args(tables):
+def create_parser(tables):
     aparser = argparse.ArgumentParser()
 
     aparser.add_argument(
@@ -45,30 +45,87 @@ def parse_args(tables):
         action='store_true',
         help='Refresh oauth token (repeated authentication will be required)',
     )
+    aparser.add_argument(
+        '--notification-type',
+        choices=['win', 'tg', 'console'],
+        default='$default',
+        help='type of notification program will sent'
+    )
+    integer = lambda t: [int, lambda q: '$file'][t == '$file'](t)
 
-    args = aparser.parse_args(sys.argv[1:])
-    return args
+    aparser.add_argument(
+        '--tg-notification-id',
+        default='$file',
+        help='id for tg-notification-bot https://t.me/console_notification_bot',
+        type=integer,
+    )
+    aparser.add_argument(
+        '--do-not-save-tg-id',
+        action='store_true',
+        help='forbid saving passed id for tg notification bot',
+    )
 
+    return aparser
+
+
+def choose_notifier(arg_parser, args) -> Notifier:
+    chosen = args.notification_type
+    saved_tg_id = None
+    if os.path.exists('_data/user-data.json'):
+        with open('_data/user-data.json', 'r') as f:
+            saved_tg_id = json.load(f).get('tg-id')
+
+    match chosen:
+        case '$default':
+            if args.tg_notification_id != '$file':
+                return TgNotifier(args.tg_notification_id)
+            else:
+                if os.name == 'nt':
+                    return WinNotifier()
+                else:
+                    return ConsoleNotifier() if saved_tg_id is None else TgNotifier(saved_tg_id)
+        case 'win':
+            if os.name != 'nt':
+                print('[WARN] You are not on windows, may be you shouldn\'t use windows notifications...', file=sys.stderr)
+            return WinNotifier()
+        case 'tg':
+            if args.tg_notification_id == '$file' and saved_tg_id is None:
+                arg_parser.error(
+                    'if you choose tg notification, you should pass --tg-notification-id '
+                    'or have it saved in file (it automatically saved unless you pass '
+                    '--do-not-save-tg-id)'
+                )
+            return TgNotifier(args.tg_notification_id if args.tg_notification_id != '$file' else saved_tg_id)
+        case 'console':
+            return ConsoleNotifier()
+        case _:
+            assert False
 
 def main():
     with open('_data/tables.json', encoding='utf-8') as f:
         data = json.load(f)
 
-    args = parse_args([i for i in data.keys() if i != '$default'])
+    aparser = create_parser([i for i in data.keys() if i != '$default'])
+    args = aparser.parse_args(sys.argv[1:])
 
     if args.show_table_link:
         print(f'Table link: https://docs.google.com/spreadsheets/d/{data[args.table]["table-key"]}')
 
     if args.refresh_token:
+        print('Removing old token')
         os.remove('_data/authed_user.json')
 
+    notifier = choose_notifier(aparser, args)
+
     gc = create_gc_object()
-    if gc.expiry < datetime.now():
+
+    if gc.http_client.auth.expired:
+        print('token протух, обновляем!')
         os.remove('_data/authed_user.json')
         gc = create_gc_object()
 
 
-    spec = Spectator(gc, args.name, TableData(data, args.table), args.gui_text)
+    spec = Spectator(gc, args.name, TableData(data, args.table), notifier, args.gui_text)
     spec.mainloop()
 
 if __name__ == '__main__':
