@@ -1,5 +1,7 @@
 import copy
 
+from .validator import Validator
+
 
 def prepare_dict(selected, base):
     res = copy.deepcopy(base)
@@ -10,12 +12,16 @@ def prepare_dict(selected, base):
             res[k] = selected[k]
     return res
 
+
 def fail_if(data: bool, error_text: str=""):
     if data:
         raise ValueError(error_text)
 
 class TableData:
     def __init__(self, data, table_name):
+        error = Validator.validate(data)
+        if error:
+            raise ValueError(f"invalid data given: {error}")
         self.table_name = table_name
         self.data = data
 

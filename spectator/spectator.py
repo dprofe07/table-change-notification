@@ -1,5 +1,3 @@
-import copy
-import re
 import time
 
 import gspread
@@ -8,7 +6,7 @@ from gspread.utils import rowcol_to_a1
 from winotify import Notification
 
 from table_data import TableData
-from task_fetcher import TaskFetcher
+from .task_fetcher import TaskFetcher
 
 
 def notify(text):
@@ -87,8 +85,10 @@ class Spectator:
             return sheet_hws[-1]
         elif self.data.worksheet_picking_type == '$first':
             return worksheets[0]
-        else:
-            return ([it for it in worksheets if it.title == self.data.worksheet_picking_type] or [None])[0]
+        elif self.data.worksheet_picking_type.startswith('$$'):
+            name = self.data.worksheet_picking_type[2:]
+            return ([it for it in worksheets if it.title == name] or [None])[0]
+        raise ValueError("incorrect worksheet picking type")
 
 
     def find_person_number(self, name, names_column) -> int:

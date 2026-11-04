@@ -1,16 +1,14 @@
 import json
-import re
 import sys
 import threading
 import argparse
-import time
 
 import gspread
 
-from spectator import *
+from spectator import Spectator
 from table_data import TableData
 
-with open('tables.json', encoding='utf-8') as f:
+with open('_data/tables.json', encoding='utf-8') as f:
     data = json.load(f)
 
 aparser = argparse.ArgumentParser()
@@ -25,7 +23,7 @@ args = aparser.parse_args(sys.argv[1:])
 if args.show_table_link:
     print(f'Table link: https://docs.google.com/spreadsheets/d/{data[args.table]["table-key"]}')
 
-gc = gspread.oauth(credentials_filename='client_secret.json')
+gc = gspread.oauth(credentials_filename='_data/client_secret.json', authorized_user_filename='_data/authed_user.json')
 spec = Spectator(gc, args.name, TableData(data, args.table), args.gui_text)
 
 threading.Thread(target=spec.mainloop).start()
