@@ -1,3 +1,4 @@
+import threading
 import time
 
 import gspread
@@ -101,7 +102,7 @@ class Spectator:
     def stop(self):
         self.stopped = True
 
-    def mainloop(self):
+    def _mainloop(self):
         t = 0
         print('Starting loop')
         while not self.stopped:
@@ -112,3 +113,10 @@ class Spectator:
             t += 1
             if t % 100 == 0:
                 self.load_worksheet()
+
+    def mainloop(self):
+        if self.tasks_fetcher is not None:
+            threading.Thread(target=self._mainloop).start()
+            self.tasks_fetcher.tk.mainloop()
+        else:
+            self._mainloop()
