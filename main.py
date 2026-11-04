@@ -49,7 +49,7 @@ def create_parser(tables):
         '--notification-type',
         choices=['win', 'tg', 'console'],
         default='$default',
-        help='type of notification program will sent'
+        help='type of notification program will send'
     )
     integer = lambda t: [int, lambda q: '$file'][t == '$file'](t)
 
