@@ -64,6 +64,11 @@ def create_parser(tables):
         action='store_true',
         help='forbid saving passed id for tg notification bot',
     )
+    aparser.add_argument(
+        '--test-notifier',
+        action='store_true',
+        help='send test notification as program starts',
+    )
 
     return aparser
 
@@ -116,6 +121,9 @@ def main():
         os.remove('_data/authed_user.json')
 
     notifier = choose_notifier(aparser, args)
+
+    if args.test_notifier:
+        notifier.notify('test notification')
 
     gc = create_gc_object()
 
